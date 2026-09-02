@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Cadastro | File Inspector{% endblock %}
+{% block body %}
+<div class="auth-shell">
+  <div class="brand-panel">
+    <div class="brand-kicker">NOVO AMBIENTE</div>
+    <h1>Cadastro<br>de usuário</h1>
+    <p>O cadastro já nasce separado da lógica de análise, como no Evidence.</p>
+  </div>
+  <div class="auth-card">
+    <h2>Criar cadastro</h2>
+    {% if error %}<div class="alert danger">{{ error }}</div>{% endif %}
+    <form method="post" action="/register">
+      <label>Nome</label><input name="name" required>
+      <label>E-mail</label><input type="email" name="email" required>
+      <label>Empresa / Setor</label><input name="company">
+      <label>Senha</label><input type="password" name="password" required>
+      <button class="btn primary full" type="submit">Cadastrar</button>
+    </form>
+    <div class="auth-footer"><a href="/">Voltar para o login</a></div>
+  </div>
+</div>
+{% endblock %}
