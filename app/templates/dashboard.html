@@ -1,0 +1,610 @@
+{% extends "base.html" %}
+{% block title %}Corporativo | File Inspector{% endblock %}
+{% block body %}
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="logo">CI</div>
+    <div class="product">File Inspector<span>Corporate • Engenharia</span></div>
+    <nav>
+      <button class="nav-item active" data-view="overview">Visão geral</button>
+      <button class="nav-item" data-view="monitor">Usinagem Interna</button>
+      <button class="nav-item" data-view="laser">Corte a Laser</button>
+      <button class="nav-item" data-view="structure">Estrutura do Produto</button>
+      <button class="nav-item" data-view="library">Biblioteca CAD</button>
+      <button class="nav-item" data-view="history">Histórico</button>
+      <button class="nav-item" data-view="evidence">Evidências</button>
+      <button class="nav-item" data-view="people">Envolvidos</button>
+      <button class="nav-item" data-view="audit">Auditoria</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="user-mini">{{ user_name }}</div>
+      <a href="/logout">Sair</a>
+    </div>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">AMBIENTE CORPORATIVO</div>
+        <h1 id="page-title">File Inspector</h1>
+      </div>
+      <div class="version">V0.7.4.0</div>
+    </header>
+
+    <section id="overview" class="view active-view">
+      <div class="hero-card">
+        <div>
+          <span class="chip">Ambiente compartilhado</span>
+          <h2>Visão geral por processo.</h2>
+          <p>Usinagem Interna e Corte a Laser mantêm indicadores próprios, com histórico e evidências centralizados.</p>
+        </div>
+      </div>
+
+      <div class="overview-process-grid">
+        <div class="process-summary">
+          <div class="process-summary-head">
+            <div>
+              <span class="chip">Usinagem</span>
+              <h3>Usinagem Interna</h3>
+              <p>{{ settings["official_folder_path"] if settings and settings["official_folder_path"] else "Pasta não configurada" }}</p>
+              <small id="mach-last-analysis" class="last-analysis{% if not machining_summary['analyzed_at'] %} hidden{% endif %}">{% if machining_summary["analyzed_at"] %}Última análise: {{ machining_summary["analyzed_at"] }}{% endif %}</small>
+            </div>
+            <div class="process-actions">
+              <button class="btn secondary" type="button" onclick="toggleProcessConfig('usinagem', true)">Configurar / alterar</button>
+              {% if settings and settings["official_folder_path"] %}
+              <button class="btn primary" onclick="activateView('monitor'); scanCorporate();">Analisar</button>
+              {% endif %}
+            </div>
+          </div>
+          <div class="stats compact-stats">
+            <div class="stat"><span id="mach-total">{{ machining_summary["total"] }}</span><label>Pastas analisadas</label></div>
+            <div class="stat"><span id="mach-ok">{{ machining_summary["ok"] }}</span><label>Conformes</label></div>
+            <div class="stat"><span id="mach-warning">{{ machining_summary["warning"] }}</span><label>Atenção / verificadas</label></div>
+            <div class="stat"><span id="mach-bad">{{ machining_summary["bad"] }}</span><label>Incompletas</label></div>
+          </div>
+        </div>
+
+        <div class="process-summary">
+          <div class="process-summary-head">
+            <div>
+              <span class="chip">Corte</span>
+              <h3>Corte a Laser</h3>
+              <p>{{ laser_path if laser_path else "Pasta não configurada" }}</p>
+              <small id="laser-last-analysis" class="last-analysis{% if not laser_summary['analyzed_at'] %} hidden{% endif %}">{% if laser_summary["analyzed_at"] %}Última análise: {{ laser_summary["analyzed_at"] }}{% endif %}</small>
+            </div>
+            <div class="process-actions">
+              <button class="btn secondary" type="button" onclick="toggleProcessConfig('corte_laser', true)">Configurar / alterar</button>
+              {% if laser_path %}
+              <button class="btn primary" onclick="activateView('laser'); scanLaser();">Analisar</button>
+              {% endif %}
+            </div>
+          </div>
+          <div class="stats compact-stats">
+            <div class="stat"><span id="laser-total">{{ laser_summary["total"] }}</span><label>Pastas analisadas</label></div>
+            <div class="stat"><span id="laser-ok">{{ laser_summary["ok"] }}</span><label>Conformes</label></div>
+            <div class="stat"><span id="laser-warning">{{ laser_summary["warning"] }}</span><label>Atenção / verificadas</label></div>
+            <div class="stat"><span id="laser-bad">{{ laser_summary["bad"] }}</span><label>Incompletas</label></div>
+          </div>
+        </div>
+
+        <div class="process-summary">
+          <div class="process-summary-head">
+            <div><span class="chip">CAD</span><h3>Biblioteca CAD</h3><p>{{ library_path if library_path else "Pasta não configurada" }}</p>
+              <small class="last-analysis{% if not library_summary['analyzed_at'] %} hidden{% endif %}">{% if library_summary["analyzed_at"] %}Última análise: {{ library_summary["analyzed_at"] }}{% endif %}</small>
+            </div>
+            <div class="process-actions"><button class="btn secondary" type="button" data-config-process="biblioteca_cad">Configurar / alterar</button>{% if library_path %}<button class="btn primary" onclick="activateView('library'); scanLibrary();">Analisar</button>{% endif %}</div>
+          </div>
+          <div class="stats compact-stats">
+            <div class="stat"><span id="library-total">{{ library_summary["total"] }}</span><label>Itens analisados</label></div>
+            <div class="stat"><span id="library-ok">{{ library_summary["ok"] }}</span><label>Conformes</label></div>
+            <div class="stat"><span id="library-warning">{{ library_summary["warning"] }}</span><label>Atenção</label></div>
+            <div class="stat"><span id="library-bad">{{ library_summary["bad"] }}</span><label>Incompletos</label></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="monitor" class="view">
+      <div class="process-page-head">
+        <div>
+          <span class="chip">Usinagem</span>
+          <h2>Usinagem Interna</h2>
+          <p>{{ settings["official_folder_path"] if settings and settings["official_folder_path"] else "Pasta não configurada" }}</p>
+        </div>
+        <button class="btn secondary" type="button" onclick="toggleProcessConfig('usinagem', true)">Configurar / alterar pasta</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head standard-monitor-head">
+          <div>
+            <h3>Resultado da Usinagem Interna</h3>
+            <p id="scan-subtitle">Execute uma análise da pasta oficial.</p>
+          </div>
+          <div class="panel-tools monitor-tools">
+            <select id="status-filter" onchange="filterRows()">
+              <option value="">Todos os status</option>
+              <option value="conforme">Conformes</option>
+              <option value="atencao">Atenção</option>
+              <option value="verificado">Verificados</option>
+              <option value="incompleto">Incompletos</option>
+            </select>
+            <input id="search" type="search" placeholder="Buscar código, pasta ou pendência..." oninput="filterRows()">
+            <button class="btn primary" onclick="scanCorporate()">Analisar Usinagem</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Pasta / códigos</th><th>Padrão</th><th>PDF</th><th>2D</th><th>STEP</th>
+              <th>Editável</th><th>Pasta NC</th><th>.NC</th><th>Status</th><th>Pendência</th>
+            </tr></thead>
+            <tbody id="result-body"><tr><td colspan="10" class="empty">Nenhuma análise executada.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="details-panel" class="details-panel hidden"></div>
+    </section>
+
+    
+    <section id="laser" class="view">
+      <div class="process-page-head">
+        <div>
+          <span class="chip">Corte</span>
+          <h2>Corte a Laser</h2>
+          <p>{{ laser_path if laser_path else "Pasta não configurada" }}</p>
+        </div>
+        <button class="btn secondary" type="button" onclick="toggleProcessConfig('corte_laser', true)">Configurar / alterar pasta</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head standard-monitor-head">
+          <div>
+            <h3>Resultado do Corte a Laser</h3>
+            <p id="laser-subtitle">
+              {% if laser_snapshot and laser_snapshot["results"] %}
+                {{ laser_snapshot["environment_name"] }} • {{ laser_snapshot["folder_path"] }} • Última análise: {{ laser_snapshot["analyzed_at"] }}
+              {% else %}
+                Execute uma análise da pasta oficial.
+              {% endif %}
+            </p>
+          </div>
+          <div class="panel-tools monitor-tools">
+            <select id="laser-status-filter" onchange="applyLaserFilters()">
+              <option value="all">Todos os status</option>
+              <option value="conforme">Conformes</option>
+              <option value="incompleto">Incompletos</option>
+            </select>
+            <input id="laser-search" type="search" placeholder="Buscar código, pasta ou pendência..." oninput="applyLaserFilters()">
+            <button class="btn primary" onclick="scanLaser()">Analisar Corte a Laser</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Pasta / códigos</th>
+                <th>Padrão</th>
+                <th>DXF</th>
+                <th>PDF</th>
+                <th>Status</th>
+                <th>Pendência</th>
+              </tr>
+            </thead>
+            <tbody id="laser-body">
+              {% if laser_snapshot and laser_snapshot["results"] %}
+                {% for r in laser_snapshot["results"] %}
+                <tr class="row-click" onclick="showLaserDetails({{ loop.index0 }})">
+                  <td>
+                    <strong>{{ r["folder_name"] }}</strong><br>
+                    <small>{{ (r["codes"] or [])|join(" • ") }}</small>
+                  </td>
+                  <td class="center">{{ "✓" if r["folder_pattern_ok"] else "—" }}</td>
+                  <td class="center">{{ "✓" if r["dxf"] else "—" }}</td>
+                  <td class="center">{{ "✓" if r["pdf"] else "—" }}</td>
+                  <td>
+                    <span class="status {{ r["status"] }}">
+                      {% if r["status"] == "conforme" %}CONFORME
+                      {% elif r["status"] == "incompleto" %}INCOMPLETO
+                      {% elif r["status"] == "atencao" %}ATENÇÃO
+                      {% elif r["status"] == "verificado" %}VERIFICADO
+                      {% else %}{{ r["status"]|upper }}
+                      {% endif %}
+                    </span>
+                  </td>
+                  <td>
+                    {% if r["actions"] %}
+                      {{ r["actions"][0] }}
+                      {% if r["actions"]|length > 1 %} (+{{ r["actions"]|length - 1 }}){% endif %}
+                    {% else %}
+                      Nenhuma
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="6" class="empty">Nenhuma análise executada.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="laser-details-panel" class="details-panel hidden"></div>
+    </section>
+
+    
+    <section id="library" class="view">
+      <div class="process-page-head"><div><span class="chip">CAD</span><h2>Biblioteca CAD</h2><p>{{ library_path if library_path else "Pasta não configurada" }}</p></div><button class="btn secondary" type="button" data-config-process="biblioteca_cad">Configurar / alterar pasta</button></div>
+      <div class="panel">
+        <div class="panel-head standard-monitor-head"><div><h3>Integridade da Biblioteca</h3><p id="library-subtitle">Biblioteca → Tipo do item → Código - Nome → 3D + 2D editável + PDF. STEP é ignorado nesta versão.</p></div><div class="panel-tools monitor-tools"><select id="library-status-filter" onchange="filterLibrary()"><option value="">Todos os status</option><option value="conforme">Conformes</option><option value="incompleto">Incompletos</option></select><input id="library-search" type="search" placeholder="Buscar código, nome ou tipo..." oninput="filterLibrary()"><button class="btn primary" onclick="scanLibrary()">Analisar Biblioteca</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Tipo do item</th><th>Pasta / código</th><th>Padrão Código - Nome</th><th>3D editável</th><th>2D editável</th><th>PDF</th><th>Status</th><th>Pendência</th></tr></thead><tbody id="library-body"><tr><td colspan="8" class="empty">Nenhuma análise executada.</td></tr></tbody></table></div>
+      </div>
+      <div id="library-details-panel" class="details-panel hidden"></div>
+    </section>
+
+    <section id="structure" class="view">
+      <div class="process-page-head">
+        <div>
+          <span class="chip">V0.7</span>
+          <h2>Estrutura do Produto</h2>
+          <p>Importe PDF ou imagem/print para identificar códigos de fabricação relevantes.</p>
+        </div>
+      </div>
+
+      <div class="panel structure-upload-panel">
+        <div class="panel-head">
+          <div>
+            <h3>Analisar nova estrutura</h3>
+            <p>Na V0.7 o sistema identifica e classifica os códigos. O cruzamento automático com as pastas monitoradas fica para a V0.8.</p>
+          </div>
+        </div>
+        <form method="post" action="/product-structure/analyze" enctype="multipart/form-data" class="structure-form">
+          <label>Arquivo da estrutura</label>
+          <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp" required>
+          <label>Texto complementar / transcrição do print <span class="muted">(opcional para PDF; necessário se a imagem não tiver texto extraível)</span></label>
+          <textarea name="supplemental_text" rows="5" placeholder="Cole aqui o texto da estrutura quando estiver usando um print/imagem."></textarea>
+          <div class="structure-rules">
+            <strong>Regras desta versão</strong>
+            <span>USI03 → interno → avaliar em Usinagem</span>
+            <span>CRT03 → interno → avaliar em Corte a Laser</span>
+            <span>USI01 / CRT01 → externo → identificar, sem avaliar</span>
+            <span>PRE → Preparados → reconhecer e exibir, sem avaliar PRE/Roteiros por enquanto</span>
+          </div>
+          <p class="duplicate-note">Se o mesmo arquivo/conteúdo for analisado novamente, o registro anterior será atualizado em vez de duplicado.</p>
+          <button class="btn primary" type="submit">Analisar estrutura</button>
+        </form>
+      </div>
+
+      
+      <div class="panel structure-management">
+        <div class="panel-head">
+          <div>
+            <h3>Estruturas registradas</h3>
+            <p>Gerencie os arquivos já analisados. Excluir uma estrutura não apaga análises de Usinagem ou Corte a Laser.</p>
+          </div>
+          {% if product_structures %}
+          <form method="post" action="/product-structure/clear-all"
+                onsubmit="return confirm('Deseja remover todos os registros da Estrutura do Produto? Esta ação não excluirá arquivos nem análises de Usinagem/Corte a Laser.');">
+            <button type="submit" class="btn danger">Limpar todos os registros</button>
+          </form>
+          {% endif %}
+        </div>
+
+        <div class="structure-list">
+          {% for s in product_structures %}
+          <div class="structure-list-item">
+            <div>
+              <strong>{{ s["source_name"] }}</strong>
+              <span>{{ s["source_type"] }} • {{ s["item_count"] }} código(s) • {{ s["created_at"] }}</span>
+            </div>
+            <form method="post" action="/product-structure/{{ s['id'] }}/delete"
+                  onsubmit="return confirm('Excluir esta estrutura e os códigos identificados nela?');">
+              <button type="submit" class="btn danger-soft">Excluir</button>
+            </form>
+          </div>
+          {% else %}
+          <div class="empty">Nenhuma estrutura registrada.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+
+      <div class="structure-summary-grid">
+        {% for s in structure_summaries %}
+        <div class="structure-summary-card">
+          <div class="structure-summary-head">
+            <div>
+              <small>Estrutura</small>
+              <strong>{{ s["source_name"] }}</strong>
+            </div>
+            <span class="structure-overall-status
+              {% if s['overall_status'] == 'CONFORME' %}ok
+              {% elif s['overall_status'] == 'PENDÊNCIAS' %}warn
+              {% elif s['overall_status'] == 'CÓDIGOS NÃO ENCONTRADOS' %}bad
+              {% else %}neutral{% endif %}">
+              {{ s["overall_status"] }}
+            </span>
+          </div>
+
+          <div class="structure-kpis">
+            <div><strong>{{ s["total_codes"] }}</strong><span>Códigos</span></div>
+            <div><strong>{{ s["compliant_codes"] }}</strong><span>Conformes</span></div>
+            <div><strong>{{ s["incomplete_codes"] }}</strong><span>Incompletos</span></div>
+            <div><strong>{{ s["missing_codes"] }}</strong><span>Não encontrados</span></div>
+            <div><strong>{{ s["external_codes"] }}</strong><span>Externos</span></div>
+            <div><strong>{{ s["prepared_codes"] }}</strong><span>PRE</span></div>
+          </div>
+
+          <div class="structure-cross-state">
+            {% if s["crosscheck_stale"] %}
+              <span class="stale-dot"></span>
+              <strong>Cruzamento desatualizado</strong>
+              <span>Existe monitoramento mais recente.</span>
+            {% elif s["last_crosscheck_at"] %}
+              <span class="ok-dot"></span>
+              <strong>Cruzamento registrado</strong>
+              <span>{{ s["last_crosscheck_at"] }}</span>
+            {% else %}
+              <span class="neutral-dot"></span>
+              <strong>Aguardando registro</strong>
+              <span>Atualize o cruzamento para criar o primeiro histórico.</span>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <div class="panel empty">Nenhuma estrutura disponível para consolidação.</div>
+        {% endfor %}
+      </div>
+
+<div class="panel">
+        <div class="panel-head">
+          <div>
+            <h3>Cruzamento com os monitoramentos</h3>
+            <p>Este módulo reaproveita o último resultado oficial da Usinagem Interna e do Corte a Laser; não cria uma segunda análise.</p>
+          </div>
+          <div class="panel-tools">
+            <select id="structure-filter" onchange="filterStructureRows()">
+              <option value="all">Todos</option>
+              <option value="USI">USI</option>
+              <option value="CRT">CRT</option>
+              <option value="PRE">PRE</option>
+              <option value="Interno">Internos</option>
+              <option value="Externo">Externos</option>
+              <option value="nao_encontrado">Não encontrados</option>
+              <option value="conforme">Conformes</option>
+              <option value="incompleto">Incompletos</option>
+            </select>
+            <input id="structure-search" type="search" placeholder="Buscar código, processo, pendência ou arquivo..." oninput="filterStructureRows()">
+            <div class="crosscheck-actions">
+              <small id="crosscheck-updated-at" class="muted"></small>
+              <button class="btn secondary" type="button" onclick="refreshStructureCrosscheck()">Atualizar e registrar cruzamento</button>
+            </div>
+          </div>
+        </div>
+        <div class="crosscheck-note">
+          <strong>Fonte de verdade:</strong>
+          <span>USI03 → último resultado da Usinagem Interna.</span>
+          <span>CRT03 → último resultado do Corte a Laser.</span>
+          <span>Fora do escopo → identificado sem procura automática.</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Código</th><th>Família</th><th>Classificação</th><th>Monitoramento</th>
+              <th>Encontrado</th><th>Status</th><th>Pendência</th><th>Arquivo fonte</th>
+            </tr></thead>
+            <tbody id="structure-body">
+              {% for item in structure_crosscheck %}
+              <tr class="structure-row"
+                  data-search="{{ item['code'] }} {{ item['family'] }} {{ item['internal_external'] }} {{ item['monitor_process'] }} {{ item['source_name'] }} {{ item['monitor_actions']|join(' ') }}"
+                  data-prefix="{{ item['prefix'] }}"
+                  data-origin="{{ item['internal_external'] }}"
+                  data-monitor-status="{{ item['monitor_status'] }}">
+                <td><strong>{{ item["code"] }}</strong></td>
+                <td>{{ item["family"] }}</td>
+                <td>{{ item["internal_external"] }}</td>
+                <td>{{ item["monitor_process"] }}</td>
+                <td>
+                  {% if item["monitor_status"] == "fora_escopo" %}<span class="status-pill neutral">—</span>
+                  {% elif item["found"] %}<span class="status-pill ok">✓ Encontrado</span>
+                  {% else %}<span class="status-pill bad">✕ Não encontrado</span>{% endif %}
+                </td>
+                <td>
+                  {% if item["monitor_status"] == "conforme" %}<span class="status conforme">CONFORME</span>
+                  {% elif item["monitor_status"] in ["incompleto", "verificado"] %}<span class="status incompleto">{{ item["monitor_status"]|upper }}</span>
+                  {% elif item["monitor_status"] == "nao_encontrado" %}<span class="status incompleto">NÃO ENCONTRADO</span>
+                  {% else %}<span class="status-pill neutral">FORA DO ESCOPO</span>{% endif %}
+                </td>
+                <td class="pending-cell">
+                  {% if item["monitor_status"] == "nao_encontrado" %}
+                    <div class="pending-summary"><strong>Código não localizado</strong><span>Não foi encontrado no último monitoramento de {{ item["monitor_process"] }}.</span></div>
+                    <button class="btn details-btn" type="button" onclick='showCrosscheckDetails({{ item|tojson }})'>Ver detalhes</button>
+                  {% elif item["monitor_actions"] %}
+                    <div class="pending-summary"><strong>{{ item["monitor_actions"]|length }} pendência(s)</strong><span>{{ item["monitor_actions"][0] }}</span></div>
+                    <button class="btn details-btn" type="button" onclick='showCrosscheckDetails({{ item|tojson }})'>Ver detalhes</button>
+                  {% elif item["monitor_status"] == "conforme" %}
+                    <div class="pending-summary ok"><strong>Sem pendências</strong><span>O último monitoramento está conforme.</span></div>
+                    <button class="btn details-btn" type="button" onclick='showCrosscheckDetails({{ item|tojson }})'>Ver detalhes</button>
+                  {% else %}—{% endif %}
+                </td>
+                <td>{{ item["source_name"] }}</td>
+              </tr>
+              {% else %}<tr><td colspan="8" class="empty">Nenhuma estrutura analisada.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    
+      <div id="crosscheck-details" class="crosscheck-detail-panel hidden">
+        <div class="crosscheck-detail-card">
+          <div class="crosscheck-detail-head"><div><span class="chip">Detalhes do cruzamento</span><h3 id="cross-detail-title">Código</h3></div><button class="icon-btn" type="button" onclick="closeCrosscheckDetails()">×</button></div>
+          <div id="cross-detail-meta" class="cross-detail-meta"></div>
+          <div class="cross-detail-section"><h4>Requisitos do processo</h4><div id="cross-detail-requirements" class="requirement-grid"></div></div>
+          <div class="cross-detail-section"><h4>Pendências identificadas</h4><div id="cross-detail-pendencies"></div></div>
+          <div class="cross-detail-actions"><button class="btn secondary" type="button" onclick="openCrosscheckMonitor()">Abrir no monitoramento</button><button class="btn primary" type="button" onclick="closeCrosscheckDetails()">Fechar</button></div>
+        </div>
+      </div>
+</section>
+
+    <section id="history" class="view">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Histórico de validações</h3><p>Quem validou, quando e por quê.</p></div></div>
+        <div class="history-list">
+        {% for h in history %}
+          <div class="history-item">
+            <div>
+              <strong>{{ h["folder_path"] }}</strong>
+              <small>{{ h["note"] }}</small>
+              <small>Validado por: {{ h["validator_name"] or "Usuário" }}</small>
+            </div>
+            <time>{{ h["validated_at"] }}</time>
+          </div>
+        {% else %}<div class="empty">Nenhuma validação registrada.</div>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    
+    <section id="evidence" class="view">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h3>Evidências de alteração</h3>
+            <p>Histórico imutável de arquivos adicionados, alterados ou removidos.</p>
+          </div>
+        </div>
+        <div class="history-list">
+        {% for e in evidence %}
+          <div class="history-item">
+            <div>
+              <strong>{{ e["event_type"] }} • {{ e["file_kind"] or "ARQUIVO" }}</strong>
+              <small>{{ e["file_path"] or "" }}</small>
+              <small>{{ e["details"] or "" }}</small>
+              {% if e["detected_by_user_name"] %}
+              <small>Detectado durante análise de: {{ e["detected_by_user_name"] }}</small>
+              {% endif %}
+              <small>Versão: {{ e["app_version"] }}</small>
+            </div>
+            <time>{{ e["detected_at"] }}</time>
+          </div>
+        {% else %}
+          <div class="empty">Nenhuma evidência registrada ainda. Execute uma análise para iniciar o histórico.</div>
+        {% endfor %}
+        </div>
+      </div>
+    </section>
+
+<section id="people" class="view">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Envolvidos</h3><p>Sem hierarquia de permissões nesta fase.</p></div></div>
+        <div class="people-grid">
+        {% for u in involved %}
+          <div class="person-card">
+            <div class="avatar">{{ u["name"][0]|upper }}</div>
+            <div><strong>{{ u["name"] }}</strong><small>{{ u["email"] }}</small><small>{{ u["company"] or "" }}</small></div>
+          </div>
+        {% else %}<div class="empty">Nenhum envolvido cadastrado.</div>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section id="audit" class="view">
+      <div class="panel">
+        <div class="panel-head"><div><h3>Auditoria</h3><p>Registro das principais ações no ambiente.</p></div></div>
+        <div class="history-list">
+        {% for l in logs %}
+          <div class="history-item">
+            <div><strong>{{ l["action"] }}</strong><small>{{ l["details"] or "" }}</small><small>{{ l["user_name"] or "Sistema" }}</small></div>
+            <time>{{ l["created_at"] }}</time>
+          </div>
+        {% else %}<div class="empty">Nenhuma ação registrada.</div>{% endfor %}
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="config-usinagem" class="inline-config hidden">
+  <div class="inline-config-card">
+    <div class="inline-config-head">
+      <div><span class="chip">Usinagem</span><h3>Configurar pasta da Usinagem Interna</h3></div>
+      <button type="button" class="icon-btn" onclick="toggleProcessConfig('usinagem', false)">×</button>
+    </div>
+    <form method="post" action="/process-environment">
+      <input type="hidden" name="process_key" value="usinagem">
+      <label>Pasta oficial</label>
+      <input name="path" type="text"
+             value="{{ settings['official_folder_path'] if settings and settings['official_folder_path'] else '' }}"
+             placeholder="Cole o caminho completo da pasta de Usinagem"
+             required>
+      <p class="hint">Copie o caminho completo pelo Explorador do Windows e cole aqui.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="toggleProcessConfig('usinagem', false)">Cancelar</button>
+        <button type="submit" class="btn primary">Salvar pasta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="config-corte_laser" class="inline-config hidden">
+  <div class="inline-config-card">
+    <div class="inline-config-head">
+      <div><span class="chip">Corte</span><h3>Configurar pasta do Corte a Laser</h3></div>
+      <button type="button" class="icon-btn" onclick="toggleProcessConfig('corte_laser', false)">×</button>
+    </div>
+    <form method="post" action="/process-environment">
+      <input type="hidden" name="process_key" value="corte_laser">
+      <label>Pasta oficial</label>
+      <input name="path" type="text"
+             value="{{ laser_path or '' }}"
+             placeholder="Cole o caminho completo da pasta de Corte a Laser"
+             required>
+      <p class="hint">Copie o caminho completo pelo Explorador do Windows e cole aqui.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="toggleProcessConfig('corte_laser', false)">Cancelar</button>
+        <button type="submit" class="btn primary">Salvar pasta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<div id="config-biblioteca_cad" class="inline-config hidden">
+  <div class="inline-config-card"><div class="inline-config-head"><div><span class="chip">CAD</span><h3>Configurar pasta da Biblioteca CAD</h3></div><button type="button" class="icon-btn" data-close-config="biblioteca_cad">×</button></div>
+    <form method="post" action="/process-environment"><input type="hidden" name="process_key" value="biblioteca_cad"><label>Pasta raiz da Biblioteca</label><input name="path" type="text" value="{{ library_path or '' }}" placeholder="Cole o caminho completo da pasta Biblioteca" required><p class="hint">O sistema varrerá: Biblioteca / Tipo do item / Código - Nome.</p><div class="modal-actions"><button type="button" class="btn secondary" data-close-config="biblioteca_cad">Cancelar</button><button type="submit" class="btn primary">Salvar pasta</button></div></form>
+  </div>
+</div>
+
+<script>
+function toggleProcessConfig(processKey, show=true){
+  ["usinagem","corte_laser","biblioteca_cad"].forEach(function(key){
+    const panel=document.getElementById("config-"+key);
+    if(!panel) return;
+    if(key===processKey && show){
+      panel.classList.remove("hidden");
+    }else{
+      panel.classList.add("hidden");
+    }
+  });
+}
+</script>
+
+
+<script id="process-snapshot-bootstrap" type="application/json">
+{
+  "usinagem": {{ machining_snapshot|tojson if machining_snapshot else "null" }},
+  "corte_laser": {{ laser_snapshot|tojson if laser_snapshot else "null" }},
+  "biblioteca_cad": {{ library_snapshot|tojson if library_snapshot else "null" }}
+}
+</script>
+
+
+<script>
+window.laserResults = {{ (laser_snapshot["results"] if laser_snapshot and laser_snapshot["results"] else [])|tojson }};
+window.libraryResults = {{ (library_snapshot["results"] if library_snapshot and library_snapshot["results"] else [])|tojson }};
+</script>
+
+{% endblock %}
+
+
